@@ -1,0 +1,261 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.19;
+
+/**
+ * @title CrowdFunding
+ * @author Student Project - Decentralized Crowdfunding System
+ * @notice A blockchain-based crowdfunding platform using Ethereum smart contracts
+ * @dev Deployed and tested using Remix IDE + Ganache + MetaMask
+ */
+contract CrowdFunding {
+
+    // Structs
+
+    struct Campaign {
+        uint256 id;
+        address payable owner;
+        string  title;
+        string  description;
+        uint256 goalAmount;
+        uint256 deadline;
+        uint256 amountCollected;
+        bool    withdrawn;
+        bool    exists;
+    }
+
+    struct Contribution {
+        address contributor;
+        uint256 amount;
+        uint256 timestamp;
+    }
+
+    // State Variables
+
+    uint256 public campaignCount;
+
+    mapping(uint256 => Campaign)                        public campaigns;
+    mapping(uint256 => Contribution[])                  public contributions;
+    mapping(uint256 => mapping(address => uint256))     public contributorAmount;
+
+    // Events
+
+    event CampaignCreated(
+        uint256 indexed campaignId,
+        address indexed owner,
+        string  title,
+        uint256 goalAmount,
+        uint256 deadline
+    );
+
+    event ContributionMade(
+        uint256 indexed campaignId,
+        address indexed contributor,
+        uint256 amount
+    );
+
+    event FundsWithdrawn(
+        uint256 indexed campaignId,
+        address indexed owner,
+        uint256 amount
+    );
+
+    event RefundIssued(
+        uint256 indexed campaignId,
+        address indexed contributor,
+        uint256 amount
+    );
+
+    // Modifiers
+
+    modifier campaignExists(uint256 _id) {
+        require(campaigns[_id].exists, "Campaign does not exist");
+        _;
+    }
+
+    modifier onlyCampaignOwner(uint256 _id) {
+        require(msg.sender == campaigns[_id].owner, "Not the campaign owner");
+        _;
+    }
+
+    modifier isActive(uint256 _id) {
+        require(block.timestamp < campaigns[_id].deadline, "Campaign has ended");
+        _;
+    }
+
+    modifier isEnded(uint256 _id) {
+        require(block.timestamp >= campaigns[_id].deadline, "Campaign still active");
+        _;
+    }
+
+    // Functions
+
+    function createCampaign(
+        string  memory _title,
+        string  memory _description,
+        uint256 _goalAmount,
+        uint256 _durationDays
+    ) external returns (uint256) {
+        require(bytes(_title).length > 0, "Title cannot be empty");
+        require(_goalAmount > 0, "Goal must be greater than zero");
+        require(_durationDays >= 1 && _durationDays <= 365, "Duration must be 1-365 days");
+
+        campaignCount++;
+        uint256 newId = campaignCount;
+
+        campaigns[newId] = Campaign({
+            id:              newId,
+            owner:           payable(msg.sender),
+            title:           _title,
+            description:     _description,
+            goalAmount:      _goalAmount,
+            deadline:        block.timestamp + (_durationDays * 1 days),
+            amountCollected: 0,
+            withdrawn:       false,
+            exists:          true
+        });
+
+        emit CampaignCreated(newId, msg.sender, _title, _goalAmount, campaigns[newId].deadline);
+        return newId;
+    }
+
+    function contribute(uint256 _campaignId)
+        external
+        payable
+        campaignExists(_campaignId)
+        isActive(_campaignId)
+    {
+        require(msg.value > 0, "Contribution must be greater than zero");
+        require(msg.sender != campaigns[_campaignId].owner, "Owner cannot contribute");
+
+        campaigns[_campaignId].amountCollected += msg.value;
+        contributorAmount[_campaignId][msg.sender] += msg.value;
+
+        contributions[_campaignId].push(Contribution({
+            contributor: msg.sender,
+            amount:      msg.value,
+            timestamp:   block.timestamp
+        }));
+
+        emit ContributionMade(_campaignId, msg.sender, msg.value);
+    }
+
+    function withdrawFunds(uint256 _campaignId)
+        external
+        campaignExists(_campaignId)
+        onlyCampaignOwner(_campaignId)
+        isEnded(_campaignId)
+    {
+        Campaign storage c = campaigns[_campaignId];
+        require(!c.withdrawn, "Funds already withdrawn");
+        require(c.amountCollected >= c.goalAmount, "Funding goal not reached");
+
+        c.withdrawn = true;
+        uint256 amount = c.amountCollected;
+        c.owner.transfer(amount);
+
+        emit FundsWithdrawn(_campaignId, msg.sender, amount);
+    }
+
+    function claimRefund(uint256 _campaignId)
+        external
+        campaignExists(_campaignId)
+        isEnded(_campaignId)
+    {
+        Campaign storage c = campaigns[_campaignId];
+        require(c.amountCollected < c.goalAmount, "Goal was reached, no refund");
+        require(!c.withdrawn, "Funds already processed");
+
+        uint256 contributed = contributorAmount[_campaignId][msg.sender];
+        require(contributed > 0, "No contribution found");
+
+        contributorAmount[_campaignId][msg.sender] = 0;
+        payable(msg.sender).transfer(contributed);
+
+        emit RefundIssued(_campaignId, msg.sender, contributed);
+    }
+
+    // View Functions
+
+    function getCampaign(uint256 _campaignId)
+        external
+        view
+        campaignExists(_campaignId)
+        returns (
+            uint256 id,
+            address owner,
+            string  memory title,
+            string  memory description,
+            uint256 goalAmount,
+            uint256 deadline,
+            uint256 amountCollected,
+            bool    withdrawn,
+            bool    goalReached
+        )
+    {
+        Campaign storage c = campaigns[_campaignId];
+        return (
+            c.id,
+            c.owner,
+            c.title,
+            c.description,
+            c.goalAmount,
+            c.deadline,
+            c.amountCollected,
+            c.withdrawn,
+            c.amountCollected >= c.goalAmount
+        );
+    }
+
+    function getContributions(uint256 _campaignId)
+        external
+        view
+        campaignExists(_campaignId)
+        returns (Contribution[] memory)
+    {
+        return contributions[_campaignId];
+    }
+
+    function getContributorAmount(uint256 _campaignId, address _contributor)
+        external
+        view
+        returns (uint256)
+    {
+        return contributorAmount[_campaignId][_contributor];
+    }
+
+    function getActiveCampaigns() external view returns (uint256[] memory) {
+        uint256 activeCount;
+        for (uint256 i = 1; i <= campaignCount; i++) {
+            if (block.timestamp < campaigns[i].deadline) activeCount++;
+        }
+        uint256[] memory active = new uint256[](activeCount);
+        uint256 idx;
+        for (uint256 i = 1; i <= campaignCount; i++) {
+            if (block.timestamp < campaigns[i].deadline) {
+                active[idx++] = i;
+            }
+        }
+        return active;
+    }
+
+    function isGoalMet(uint256 _campaignId)
+        external
+        view
+        campaignExists(_campaignId)
+        returns (bool)
+    {
+        Campaign storage c = campaigns[_campaignId];
+        return c.amountCollected >= c.goalAmount;
+    }
+
+    function getFundingProgress(uint256 _campaignId)
+        external
+        view
+        campaignExists(_campaignId)
+        returns (uint256)
+    {
+        Campaign storage c = campaigns[_campaignId];
+        if (c.goalAmount == 0) return 0;
+        return (c.amountCollected * 100) / c.goalAmount;
+    }
+}

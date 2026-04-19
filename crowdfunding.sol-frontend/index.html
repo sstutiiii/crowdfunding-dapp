@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CrowdFund.eth</title>
+
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- ethers.js -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+</head>
+
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="logo">crowd<span>fund</span>.eth</div>
+
+  <div class="nav-right">
+    <span class="net-badge">Ganache Local</span>
+    <button class="wallet-btn" id="walletBtn" onclick="connectWallet()">
+      Connect MetaMask
+    </button>
+  </div>
+</nav>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('browse')">Browse Campaigns</button>
+  <button class="tab" onclick="switchTab('create')">Create Campaign</button>
+  <button class="tab" onclick="switchTab('lookup')">Campaign Lookup</button>
+  <button class="tab" onclick="switchTab('myactions')">My Actions</button>
+  <button class="tab" onclick="switchTab('history')">History</button>
+</div>
+
+<!-- MAIN -->
+<main>
+  <div class="panel">
+
+    <!-- BROWSE -->
+    <div class="panel-section active" id="tab-browse">
+      <div class="section-header">
+        <div class="panel-title">All Campaigns</div>
+        <button class="btn-sm" onclick="refreshCampaigns()">↻ Refresh</button>
+      </div>
+
+      <div class="campaigns-grid" id="campaignsGrid">
+        <div class="empty">Connect MetaMask to load campaigns.</div>
+      </div>
+    </div>
+
+    <!-- CREATE -->
+    <div class="panel-section" id="tab-create">
+      <div class="panel-title">Launch a Campaign</div>
+
+      <div class="form-group">
+        <div class="field full">
+          <label>Campaign Title</label>
+          <input id="c-title" type="text" />
+        </div>
+
+        <div class="field full">
+          <label>Description</label>
+          <textarea id="c-desc" rows="3"></textarea>
+        </div>
+
+        <div class="field">
+          <label>Goal (ETH)</label>
+          <input id="c-goal" type="number" step="0.001" />
+        </div>
+
+        <div class="field">
+          <label>Duration (Days)</label>
+          <input id="c-duration" type="number" />
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="createCampaign()">
+        🚀 Deploy Campaign
+      </button>
+    </div>
+
+    <!-- LOOKUP -->
+    <div class="panel-section" id="tab-lookup">
+      <div class="panel-title">Campaign Lookup</div>
+
+      <div class="lookup-row">
+        <div class="field">
+          <label>Campaign ID</label>
+          <input id="lookup-id" type="number" />
+        </div>
+
+        <button class="btn-primary small">Fetch</button>
+      </div>
+
+      <div id="lookupResult"></div>
+    </div>
+
+    <!-- MY ACTIONS -->
+    <div class="panel-section" id="tab-myactions">
+      <div class="panel-title">Withdraw & Refund</div>
+
+      <div class="actions-grid">
+
+        <div class="action-box">
+          <div class="action-title">Withdraw Funds</div>
+          <input id="w-id" type="number" placeholder="Campaign ID"/>
+          <button class="btn-primary" onclick="withdrawFunds()">Withdraw</button>
+        </div>
+
+        <div class="action-box">
+          <div class="action-title">Claim Refund</div>
+          <input id="r-id" type="number" placeholder="Campaign ID"/>
+          <button class="btn-primary" onclick="claimRefund()">Refund</button>
+        </div>
+
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="action-title">Check My Contribution</div>
+      <div class="lookup-row">
+        <input id="mc-id" type="number" placeholder="Campaign ID"/>
+        <button class="btn-primary small" onclick="checkMyContrib()">Check</button>
+      </div>
+
+      <div id="myContribResult"></div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="panel-section" id="tab-history">
+
+      <div class="panel-title">Transaction History</div>
+
+      <p class="subtitle">All blockchain transactions from your DApp</p>
+
+      <!-- CSV BUTTON -->
+      <button class="btn-primary" onclick="downloadCSV()">
+        ⬇ Download CSV
+      </button>
+
+      <div style="overflow-x:auto;">
+        <table class="history-table" id="historyTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Tx Hash</th>
+              <th>Amount</th>
+              <th>Gas</th>
+              <th>Status</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <!-- JS fills this -->
+          </tbody>
+
+        </table>
+      </div>
+
+    </div>
+
+  </div>
+</main>
+
+<!-- MODAL -->
+<div class="overlay" id="contribOverlay">
+  <div class="modal">
+
+    <div class="modal-header">
+      <div class="modal-title">Contribute ETH</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+
+    <div class="field">
+      <label>Amount (ETH)</label>
+      <input id="contrib-amount" type="number" step="0.001"/>
+    </div>
+
+    <button class="btn-primary full-width" onclick="submitContrib()">
+      Confirm
+    </button>
+
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- JS -->
+<script src="app.js"></script>
+
+</body>
+</html>
