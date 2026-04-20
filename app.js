@@ -1,5 +1,5 @@
 // ── Contract Config ─────────────────────────────────────────────
-const CONTRACT_ADDRESS = "0x4f7FCFC75FA29408B38C4E481f03D03Ae7c5d866";
+const CONTRACT_ADDRESS = "0x7E673acD52D9eEC4e463b60581cd743640363158";
 
 const ABI =[
 	{
